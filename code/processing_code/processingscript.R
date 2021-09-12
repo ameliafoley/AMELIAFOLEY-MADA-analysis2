@@ -4,6 +4,8 @@
 #this script loads the raw data, processes and cleans it 
 #and saves it as Rds file in the processed_data folder
 
+
+
 #load needed packages. make sure they are installed.
 library(readxl) #for loading Excel files
 library(dplyr) #for data processing
@@ -11,53 +13,63 @@ library(here) #to set paths
 
 #path to data
 #note the use of the here() package and not absolute paths
-data_location <- here::here("data","raw_data","exampledata.xlsx")
 
+# For this exercise, we'll look at a dataset from the CDC data website:
+# (https://data.cdc.gov/Vaccinations/Vaccination-Coverage-and-Exemptions-among-Kinderga/ijqb-a7ye)
+# which contains data on vaccine coverage and exemptions for kindergartners at 
+# the state and national level. 
+
+data_location <- here::here("data", "raw_data", "Vaccination_Coverage_and_Exemptions_among_Kindergartners.csv")
 #load data. 
-#note that for functions that come from specific packages (instead of base R)
-# I often specify both package and function like so
-#package::function() that's not required one could just call the function
-#specifying the package makes it clearer where the function "lives",
-#but it adds typing. You can do it either way.
-rawdata <- readxl::read_excel(data_location)
+
+rawdata <- read.csv(data_location)
 
 #take a look at the data
 dplyr::glimpse(rawdata)
 
-#dataset is so small, we can print it to the screen.
-#that is often not possible.
-print(rawdata)
+# it looks like the variable vaccine.exemption is pretty broad - it either contains
+# an observation of a vaccine and it's coverage or an observation of an exemption 
+# (not an exemption of a particular vaccine type, but a general observation of an 
+# exemption and it's type - medical, non-medical, etc.)
+# there are some problems with this data:
+# there are missing values in the exemption column for observations which are 
+# vaccine types and not exemptions. We could fix that by only looking at exemptions
 
-# looks like we have measurements for height (in centimeters) and weight (in kilogram)
+# Let's just look at exemptions and remove other observation types
+# We'll also remove Percent Surveyed, Survey Type, and Footnotes, since these
+# variables are missing 
+# values or do not contain necessary info for this analysis
+# Also, the state data does not align well with the national data. Let's just look at state data
+# We'll be left with observations of the following variables: exemptions, dose 
+# (exemption type), estimate (%), 
+# school year, state, population size, and number of exemptions
 
-# there are some problems with the data: 
-# There is an entry which says "sixty" instead of a number. 
-# Does that mean it should be a numeric 60? It somehow doesn't make
-# sense since the weight is 60kg, which can't happen for a 60cm person (a baby)
-# Since we don't know how to fix this, we need to remove the person.
-# This "sixty" entry also turned all Height entries into characters instead of numeric.
-# We need to fix that too.
-# Then there is one person with a height of 6. 
-# that could be a typo, or someone mistakenly entered their height in feet.
-# Since we unfortunately don't know, we'll have to remove this person.
-# similarly, there is a person with weight of 7000, which is impossible,
-# and one person with missing weight.
-# to be able to analyze the data, we'll remove those 5 individuals
 
-# this is one way of doing it. Note that if the data gets updated, 
-# we need to decide if the thresholds are ok (newborns could be <50)
+processeddata <- filter(rawdata, Vaccine.Exemption == "Exemption") %>%
+  select(-"Percent.Surveyed", -"Footnotes", -"Survey.Type") %>%
+  filter(Geography.Type == "States")
 
-processeddata <- rawdata %>% dplyr::filter( Height != "sixty" ) %>% 
-                             dplyr::mutate(Height = as.numeric(Height)) %>% 
-                             dplyr::filter(Height > 50 & Weight < 1000)
+# look at missing data
+is.na(processeddata)
+
+# There appear to be some observations with NA values - I don't think we can infer whether
+# NA values represent 0 exemptions, or whether the data is truly missing. So, let's remove those for a 
+# cleaner dataset
+
+processeddata <- processeddata %>% na.omit(Number.of.Exemptions)
+
+# This gives us a cleaner set of observation to work with. Looking at these exemptions, our outcome
+# of interest will be the most common exemption types as well as which states 
+# have the highest exemption rates within different types
+
+# Some of my initial thoughts on what questions to look at with this clean data include:
+# - what is the most common type of exemption?
+# - what state(s) have the highest rate of exemptions? 
+# - how do different rates of different types of exemptions vary among states
+# - how have exemption rates changed over time? 
+
 
 # save data as RDS
-# I suggest you save your processed and cleaned data as RDS or RDA/Rdata files. 
-# This preserves coding like factors, characters, numeric, etc. 
-# If you save as CSV, that information would get lost.
-# See here for some suggestions on how to store your processed data:
-# http://www.sthda.com/english/wiki/saving-data-into-r-data-format-rds-and-rdata
-
 # location to save file
 save_data_location <- here::here("data","processed_data","processeddata.rds")
 
