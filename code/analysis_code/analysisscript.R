@@ -1,30 +1,29 @@
 ###############################
-# analysis script
+# Analysis script
 #
-#this script loads the processed, cleaned data, does a simple analysis
-#and saves the results to the results folder
+# #This script analyzes the processed vaccine exemption dataset and 
+# graphs the results. It also answers the questions posted on the processeddata
+# script
 
 #load needed packages. make sure they are installed.
 library(ggplot2) #for plotting
 library(broom) #for cleaning up output from lm()
 library(here) #for data loading/saving
+library(tidyverse) #for data manipulation and graphing
 
 #path to data
 #note the use of the here() package and not absolute paths
 data_location <- here::here("data","processed_data","processeddata.rds")
 
 #load data. 
-mydata <- readRDS(data_location)
+df <- readRDS(data_location)
 
 ######################################
 #Data exploration/description
 ######################################
-#I'm using basic R commands here.
-#Lots of good packages exist to do more.
-#For instance check out the tableone or skimr packages
 
 #summarize data 
-mysummary = summary(mydata)
+mysummary = summary(df)
 
 #look at summary
 print(mysummary)
@@ -38,32 +37,103 @@ summarytable_file = here("results", "summarytable.rds")
 saveRDS(summary_df, file = summarytable_file)
 
 
-#make a scatterplot of data
-#we also add a linear regression line to it
-p1 <- mydata %>% ggplot(aes(x=Height, y=Weight)) + geom_point() + geom_smooth(method='lm')
-
-#look at figure
-plot(p1)
-
-#save figure
-figure_file = here("results","resultfigure.png")
-ggsave(filename = figure_file, plot=p1) 
-
 ######################################
-#Data fitting/statistical analysis
+#Data Manipulation and Graphing
 ######################################
+#This section is to manipulate the data and graph it in order to answer 
+#the questions posted on the processing script
 
-# fit linear model
-lmfit <- lm(Weight ~ Height, mydata)  
 
-# place results from fit into a data frame with the tidy function
-lmtable <- broom::tidy(lmfit)
 
-#look at fit results
-print(lmtable)
 
-# save fit results table  
-table_file = here("results", "resulttable.rds")
-saveRDS(lmtable, file = table_file)
 
-  
+####### Q1: What is the most common type of exemption? #####################
+
+dfQ1 <- aggregate(Number.of.Exemptions ~ Dose, 
+                  data = df, sum)
+#This created a data frame that calculates the total number of exemptions by type
+#over all years and states
+
+plotQ1 <- ggplot(data = dfQ1, aes(x = Dose, y = Number.of.Exemptions, fill = Dose)) +
+           geom_bar(stat = "identity") +
+           ggtitle("Total Number of Exemptions by Type") +
+           ylab("Total Number of Exemptions") +
+           xlab("Type of Exemption")
+plotQ1
+#"Any Exemption" is the most common type of exemption
+
+
+#Saving the figure
+
+Figure1 = here("results","Plot1.png")
+ggsave(filename = Figure1, plot=plotQ1) 
+
+
+
+
+############Q2: What state(s) have the highest rate of exemptions? #################
+
+dfQ2 <- aggregate(Number.of.Exemptions ~ Geography,
+                  data = df, sum)
+#This created a data frame that calculates the total number of exemptions by state
+#over all years
+
+plotQ2 <- ggplot(data = dfQ2, aes(x = Geography, y = Number.of.Exemptions)) +
+         geom_point() +
+         theme(axis.text.x = element_text(angle = 90)) +
+         ggtitle("Total Number of Exemptions by State") +
+         ylab("Total Number of Exemptions") +
+         xlab("State")
+plotQ2
+#California has the highest total number of exemptions
+
+#Saving the figure
+Figure2 = here("results","Plot2.png")
+ggsave(filename = Figure2, plot=plotQ2) 
+
+
+
+
+
+#Q3: How do different rates of different types of exemptions vary ############
+#among states? ###############################################################
+
+dfQ3 <- aggregate(Number.of.Exemptions ~ Dose + Geography,
+                  data = df, sum)
+
+plotQ3 <- ggplot(data = dfQ3, aes(x = Geography, y = Number.of.Exemptions, color = Dose)) +
+            geom_point() +
+            facet_wrap(~ Dose) +
+            theme(axis.text.x = element_text(angle = 90, size = 3)) +
+            ggtitle("Total Number of Exemptions by State and Type") +
+            ylab("Total Number of Exemptions") +
+            xlab("State")
+plotQ3
+#Saving the figure
+Figure3 = here("results","Plot3.png")
+ggsave(filename = Figure3, plot=plotQ3) 
+
+
+
+
+###############Q4: How have exemption rates changed over time? #############################
+
+dfQ4 <- aggregate(Number.of.Exemptions ~ School.Year,
+                  data = df, sum)
+
+plotQ4 <- ggplot(data = dfQ4, aes(x = School.Year, y = Number.of.Exemptions)) +
+                geom_point() +
+                ggtitle("Total Number of Exemptions by School Year") +
+                ylab("Total Number of Exemptions") +
+                xlab("School Year")
+plotQ4
+
+#It looks like the total number of exemptions rose dramatically from 2011-12 to 
+#2013-14, stabilized for a bit until 2016-17, and then has continued to rise from there
+
+#Saving the figure
+Figure4 = here("results","Plot4.png")
+ggsave(filename = Figure4, plot=plotQ4) 
+
+
+
